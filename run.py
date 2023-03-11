@@ -3,7 +3,7 @@ import torch
 import numpy as np
 
 from tqdm import tqdm
-
+import torch.nn.functional as F
 from model_util import get_optimizer_and_scheduler, get_dataloader
 
 def train(logger, model, inputs, batch_size, output_dir,
@@ -35,11 +35,12 @@ def train(logger, model, inputs, batch_size, output_dir,
     best_accuracy = -1
     stop_training=False
 
+    kkkkk = 0
     logger.info("Start training")
     for epoch in range(num_training_steps):
         for batch in dataloader:
             global_step += 1
-
+            kkkkk = kkkkk + 1
             input_ids=batch[0].cuda()
             attention_mask=batch[1].cuda()
             token_type_ids=batch[2].cuda()
@@ -87,33 +88,34 @@ def train(logger, model, inputs, batch_size, output_dir,
 
         if global_step==num_training_steps:
             break
-
+    print("kkkkk = " , kkkkk)
     logger.info("Finish training")
 
-def inference(model, inputs, batch_size, return_logits=False):
+def inference(model, inputs, batch_size, tokenizer,return_logits=False):
+    #print("inputs inference= ",len(inputs))
     dataloader = get_dataloader(inputs, batch_size, is_training=False)
-
+    #print("dataloader = " , dataloader)
     all_losses = []
     for batch in tqdm(dataloader):
         input_ids=batch[0].cuda()
         attention_mask=batch[1].cuda()
         token_type_ids=batch[2].cuda()
-
+        #print("len(batch) = ", len(batch))
         if len(batch)==3:
             labels=None
         else:
             labels=batch[3].cuda()
 
         with torch.no_grad():
-            loss = run_model(model, input_ids, attention_mask, token_type_ids,
+            loss = run_model(model, input_ids, attention_mask, token_type_ids,tokenizer,
                              labels=labels, return_logits=return_logits)
-
+            print("loss inference =",loss)
         all_losses += loss.cpu().detach().numpy().tolist()
 
     return all_losses
 
 
-def run_model(model, input_ids, attention_mask, token_type_ids,
+def run_model(model, input_ids, attention_mask, token_type_ids, tokenizer = None,
               labels=None, return_logits=False):
     outputs = model(input_ids=input_ids, attention_mask=attention_mask)
     logits = outputs.logits[..., :-1, :].contiguous()

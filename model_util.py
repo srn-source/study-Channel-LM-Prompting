@@ -119,13 +119,19 @@ class MyEmbedding(torch.nn.Module):
         super().__init__()
         self.embed = embed
         self.new_embed = torch.nn.Embedding(n_prefix, embed.embedding_dim)
-
+        print("self.embed = ", self.embed)
+        print("self.new_embed = ", self.new_embed)
         # following Lester et al. 2021 in initializing using the top 5000 random vocabs
         indices = np.random.permutation(range(5000))[:n_prefix]
+        print("indices = ", indices)
         init_weight = self.embed.state_dict()["weight"][indices]
+        print("init_weight = ", init_weight)
         self.new_embed._load_from_state_dict({"weight": init_weight},
                                              "", None, True, [], [], "")
-
+        hhh = torch.cat([self.embed.weight, self.new_embed.weight], 0)
+        print("self.embed.weight = ", self.embed.weight.shape) #torch.Size([50257, 1280])
+        print("self.new_embed.weight = ", self.new_embed.weight.shape) #torch.Size([20, 1280])
+        print("hhh = ", hhh.shape)  #torch.Size([50277, 1280])
     def forward(self, input):
         return F.embedding(
             input,
@@ -154,10 +160,16 @@ class MyLMHead(torch.nn.Module):
 
     def __init__(self, lm_head, mapping):
         super().__init__()
+        print("lm_head.in_features = ", lm_head.in_features)
+        print("len(mapping) = ", len(mapping))
+        
         self.my_lm_head = torch.nn.Linear(lm_head.in_features, len(mapping), bias=False)
 
         indices = [mapping[i] for i in range(len(mapping))]
+        print("indices = ", indices)
         init_weight = lm_head.state_dict()["weight"][indices]
+        print("init_weight = ", init_weight)
+        print("init_weight = ", init_weight.shape)
         self.my_lm_head._load_from_state_dict({"weight": init_weight},
                                               "", None, True, [], [], "")
 

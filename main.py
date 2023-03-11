@@ -65,6 +65,7 @@ def main(logger, args):
     seed = int(args.seed)
 
     train_data = load_data(args.data_dir, train_task, k, seed, "train")
+    print("len train_data = ",len(train_data))
     if args.split is None:
         assert args.do_zeroshot
         dev_data = None
@@ -93,10 +94,10 @@ def main(logger, args):
                   n_prefix=args.n_prefix)
 
         accs.append(acc)
-
+        
     if args.split is not None:
         logger.info("Accuracy = %.1f (Avg) / %.1f (Worst)" % (100*np.mean(accs), 100*np.min(accs)))
-
+        print("Accuracy = %.1f (Avg) / %.1f (Worst)" % (100*np.mean(accs), 100*np.min(accs)))
 
 def run(logger, do_train, do_zeroshot, task, train_task, k, seed,
         train_seed,
@@ -181,7 +182,7 @@ def run(logger, do_train, do_zeroshot, task, train_task, k, seed,
     mapping = None
 
     if do_train and (head_tune or not do_check):
-
+        print("head_tune")
         inputs = prepare_data(
             tokenizer, None, train_data,
             max_length=max_length,
@@ -191,7 +192,7 @@ def run(logger, do_train, do_zeroshot, task, train_task, k, seed,
             method_type=method_type,
             is_training=True,
             ensemble=ensemble)
-
+        print("inputs prepare_data = ", inputs['input_ids'].shape)
         logger.info(out_dir)
 
         if not os.path.exists(out_dir):
@@ -210,6 +211,10 @@ def run(logger, do_train, do_zeroshot, task, train_task, k, seed,
 
             elif head_tune:
                 mapping, inputs = reassign_output_tokens(inputs, for_labels=True)
+                print("reassig input_ids = ",inputs['input_ids'][0])
+                print("reassig token_type_ids = ",inputs['token_type_ids'][0])
+                print("reassig attention_mask = ",inputs['attention_mask'][0])
+                print("reassig label = ",inputs['labels'][0])
                 logger.info("Created mapping with {} vocabs".format(len(mapping)))
                 set_separate_lm_head(model, mapping)
                 for param in model.parameters():
@@ -238,6 +243,7 @@ def run(logger, do_train, do_zeroshot, task, train_task, k, seed,
                   head_tune=head_tune,
                   transform_tune=transform_tune)
 
+    #print("train_data shape = ",train_data)
     input_tensors = prepare_data(
         tokenizer, train_data, dev_data,
         max_length=max_length,
@@ -248,9 +254,10 @@ def run(logger, do_train, do_zeroshot, task, train_task, k, seed,
         use_demonstrations=use_demonstrations,
         ensemble=ensemble,
         is_null=is_null)
-
+    #print("input_tensors shape = ",input_tensors)
     if prompt_tune:
         input_tensors = prepend_task_tokens(tokenizer, input_tensors, n_prefix)
+        print("prompt_tune")
 
     if head_tune:
         # some tricks in case train_task and test_task are different
@@ -290,6 +297,13 @@ def run(logger, do_train, do_zeroshot, task, train_task, k, seed,
     logger.info("Output:")
     logger.info(tokenizer.decode([_id for _id, _type_id in zip(input_ids, token_type_ids) if _type_id == 1]))
 
+    #print("input_tensors shape" , input_tensors[0]["input_ids"].shape)
+
+    # print("Input:")
+    # print(tokenizer.decode(input_ids[:token_type_ids.index(1)]))
+    # print("Output:")
+    # print(tokenizer.decode([_id for _id, _type_id in zip(input_ids, token_type_ids) if _type_id == 1]))
+    
     results = []
     for cache_path, checkpoint in zip(cache_paths, checkpoints):
 
@@ -322,11 +336,19 @@ def run(logger, do_train, do_zeroshot, task, train_task, k, seed,
                 logger.info("Finished loading the model")
 
             losses = []
+            ju = 0
+            #print("input_tensors = " , input_tensors)
             for input_tensor in input_tensors:
-                losses.append(inference(model,
+                #print("input_tensor = " , input_tensor)
+                loss_infer = inference(model,
                                         input_tensor,
-                                        batch_size))
-
+                                        batch_size, tokenizer)
+                print("loss_infer len= " , len(loss_infer))
+                print("loss_infer = " , loss_infer)
+                losses.append(loss_infer)
+                ju = ju +1
+            print("ju = ",ju)
+            print("losses = ", losses)
             with open(cache_path, "wb") as f:
                 pkl.dump(losses, f)
 
@@ -349,17 +371,23 @@ def run(logger, do_train, do_zeroshot, task, train_task, k, seed,
                     bias_loss = bias_loss.reshape(1, -1)
                 losses[i] = loss - bias_loss
 
-
+        #print("dict = ", {str(i): loss for i, loss in enumerate(losses)})
         acc = evaluate(dev_data, {str(i): loss for i, loss in enumerate(losses)})
+        
         logger.info(acc)
         return acc
 
 def evaluate(dev_data, label_losses):
     labels = list(label_losses.keys())
+    print("labels = ", labels)
     acc = []
     for idx, (_, label) in enumerate(dev_data):
         label_loss = {l:np.sum(label_losses[l][idx]) for l in label_losses}
+        print("label_loss = ",label_loss)
         prediction = sorted(label_loss.items(), key=lambda x: x[1])[0][0]
+        print("label = ", label)
+        print("prediction = ",prediction)
+        
         acc.append(prediction==label)
     return np.mean(acc)
 

@@ -23,6 +23,8 @@ def prepro_sentence_pair_single(ids1, ids2, max_length,
                                 allow_truncation=False):
 
     assert not negate
+    
+    #print("label = ", ids2)
 
     if bos_token_id is not None:
         ids1 = [bos_token_id] + ids1
@@ -31,6 +33,7 @@ def prepro_sentence_pair_single(ids1, ids2, max_length,
     if allow_truncation and len(ids1)+len(ids2) > max_length:
         ids1 = ids1[len(ids1)+len(ids2)-max_length:] # len = max_length-len(ids2)
         assert len(ids1)+len(ids2)==max_length
+
 
     n_mask = max_length-len(ids1)-len(ids2)
     assert n_mask>=0, (max_length, len(ids1), len(ids2))
@@ -49,6 +52,7 @@ def prepro_sentence_pair(train_inputs, test_inputs, max_length,
     input_ids, attention_mask, token_type_ids = [], [], []
     for test_input in test_inputs:
         for train_input in train_inputs:
+            #print("train_input = ", train_input)
             _input_ids, _attention_mask, _token_type_ids = \
                 prepro_sentence_pair_single(train_input, test_input, max_length,
                                             bos_token_id, eos_token_id,
@@ -62,11 +66,17 @@ def prepro_sentence_pair(train_inputs, test_inputs, max_length,
             "token_type_ids": torch.LongTensor(token_type_ids)}
 
 def flatten_label_losses(label_losses, dev_data):
+    print("label_losses ========= ",len(label_losses[0]))
+
+    print("label_losses ========= ",label_losses[0])
     for label in range(len(label_losses)):
         k = int(len(label_losses[label]) / len(dev_data))
+        print("k = ",k)
+        print("label = ",label)
         label_losses[label] = [
             label_losses[label][k*i:k*(i+1)]
             for i in range(len(dev_data))]
+    print("label_losses ========= ",label_losses[0])
     return label_losses
 
 # get templates + verbalizers
@@ -203,17 +213,24 @@ def get_paths(out_dir, gpt2, method, task, do_zeroshot,
 
 def prepend_task_tokens(tokenizer, inputs, n_prefix):
     task_tokens = ["<TASK{}>".format(str(i).zfill(2)) for i in range(n_prefix)]
+    print("task_tokens = ", task_tokens)
     tokenizer.add_tokens(task_tokens)
     task_token_ids = tokenizer(" ".join(task_tokens), return_tensors="pt")["input_ids"]
+    print("task_token_ids = ", task_token_ids)
     assert task_token_ids.shape[-1]==n_prefix
 
     def convert(inputs):
         n_train = inputs["input_ids"].shape[0]
-
+        print("n_train = ", n_train)
+        print("repeat = ", task_token_ids.repeat(n_train, 1))
+        print("input_ids origi=", inputs["input_ids"])
+        print("input_ids origi shape=", inputs["input_ids"].shape)
+        print("input_ids =", inputs["input_ids"][:,1:])
         new_input_ids=torch.cat([
                 task_token_ids.repeat(n_train, 1),
                 inputs["input_ids"][:,1:]], 1)
-
+        print("new_input_ids=", new_input_ids)
+        print("new_input_ids shape=", new_input_ids.shape)
         inputs = dict(
             input_ids=new_input_ids,
             attention_mask=torch.cat([
@@ -237,10 +254,14 @@ def reassign_output_tokens(inputs, for_labels=True, mapping=None):
     if for_labels=True, keep input_ids and convert labels
     otherwise, keep labels and convert input_ids
     '''
+    
 
     def get_unique_tokens(inputs):
         input_ids = inputs["input_ids"].detach().numpy().tolist()
         token_type_ids = inputs["token_type_ids"].detach().numpy().tolist()
+        
+        print("get_unique_tokens input_ids =",input_ids)
+        print("get_unique_tokens token_type_ids =",token_type_ids)
         unique_tokens = set()
         for _input_ids, _token_type_ids in zip(input_ids, token_type_ids):
             unique_tokens |= set([_id for _id, _token_id in zip(_input_ids, _token_type_ids) if _token_id==int(for_labels)])
@@ -261,6 +282,7 @@ def reassign_output_tokens(inputs, for_labels=True, mapping=None):
                     converted_input_ids[-1].append(mapping[_id])
                 else:
                     converted_input_ids[-1].append(0)
+            print("converted_input_ids = ", converted_input_ids)
         converted_input_ids = torch.LongTensor(converted_input_ids)
         if for_labels:
             return dict(input_ids=inputs["input_ids"],
@@ -272,17 +294,21 @@ def reassign_output_tokens(inputs, for_labels=True, mapping=None):
                     token_type_ids=inputs["token_type_ids"],
                     labels=inputs["input_ids"])
 
+    print("inputs rtrtrrr = ", type(inputs))
     if type(inputs)==list:
         if mapping is None:
             unique_tokens = set()
             for _inputs in inputs:
                 unique_tokens |= get_unique_tokens(_inputs)
+            
             mapping = convert_set_to_mapping(unique_tokens)
         rev_mapping = {v:k for k, v in mapping.items()}
         return rev_mapping, [apply_mapping(_inputs, mapping) for _inputs in inputs]
 
     assert mapping is None
     mapping = convert_set_to_mapping(get_unique_tokens(inputs))
+    print("get_unique_tokens = " , get_unique_tokens(inputs))
+    print("convert_set_to_mapping = " , convert_set_to_mapping(get_unique_tokens(inputs)))
     rev_mapping = {v:k for k, v in mapping.items()}
     return rev_mapping, apply_mapping(inputs, mapping)
 

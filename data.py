@@ -61,13 +61,14 @@ def prepare_data(tokenizer, train_data, test_data, max_length, max_length_per_ex
     - input sent should have space
     - if demonstrations are used, 2nd prompts to the input prompt should have space
     '''
-
+    print("test_data", len(test_data))
     # For calibration method, following Zhao et al. 2021
     if is_null:
         assert test_data is None
         assert method_type=="direct"
         test_data = [("N/A", "0")]
 
+    print("transform = ",transform)
     prefixes_with_space = None
     if transform is None:
         templates = [template.strip() for template in templates]
@@ -82,7 +83,7 @@ def prepare_data(tokenizer, train_data, test_data, max_length, max_length_per_ex
             prefixes_with_space = [tokenizer(" "+template)["input_ids"] for template in templates]
         else:
             raise NotImplementedError()
-
+    print("templates = ", templates)
     if transform is None:
         test_inputs = [tokenizer(sent)["input_ids"] for sent, _ in test_data]
         truncated = np.sum([len(inputs)>max_length_per_example-16 for inputs in test_inputs])
@@ -90,11 +91,13 @@ def prepare_data(tokenizer, train_data, test_data, max_length, max_length_per_ex
         if truncated > 0:
             test_inputs = [inputs[:max_length_per_example-16] for inputs in test_inputs]
             print ("%d/%d truncated" % (truncated, len(test_inputs)))
-
+        
         prefixes = [tokenizer(template)["input_ids"] for template in templates]
+        print("templates = " , templates)
+        print("prefixes = " , prefixes)
         idx = [idx for idx, _prefixes in enumerate(zip(*prefixes))
                 if not np.all([_prefixes[0]==_prefix for _prefix in _prefixes])][0]
-
+        print("idx = ",idx)
 
     else:
         test_inputs = [transform(dp, tokenizer,
@@ -151,7 +154,8 @@ def prepare_data(tokenizer, train_data, test_data, max_length, max_length_per_ex
 
         assert train_data is not None
         demonstrations = []
-
+        print("demonstrations = " , len(demonstrations))
+        print("transform = " , transform)
         np.random.shuffle(train_data)
 
         for sent, label in train_data:
@@ -191,6 +195,7 @@ def prepare_data(tokenizer, train_data, test_data, max_length, max_length_per_ex
             if method_type=="channel":
                 if use_demonstrations:
                     prefix = demonstrations.copy() + prefix
+                
                 tensor = prepro_sentence_pair([prefix], test_inputs, max_length,
                                             bos_token_id, eos_token_id,
                                             allow_truncation=use_demonstrations)
@@ -199,6 +204,8 @@ def prepare_data(tokenizer, train_data, test_data, max_length, max_length_per_ex
                     prompt = [demonstrations.copy() + test_input + prefix[:idx] for test_input in test_inputs]
                 else:
                     prompt = [test_input + prefix[:idx] for test_input in test_inputs]
+                    
+                #print("prompt = ",prompt)
                 tensor = prepro_sentence_pair(prompt,
                                             [prefix[idx:]], max_length,
                                             bos_token_id, eos_token_id,
@@ -251,6 +258,9 @@ def prepare_data_for_parallel(tokenizer, train_data, test_data,
 
         demonstrations_list.append(tokens)
 
+    print("=====demonstrations_list====")
+    print(demonstrations_list)
+    print("============================")
     # check if idx is set well
     for i in range(n_classes):
         for j in range(i+1, n_classes):
@@ -263,8 +273,13 @@ def prepare_data_for_parallel(tokenizer, train_data, test_data,
 
         if method_type=="channel":
             prefix = prefixes_with_space[i].copy()
+            print("prefix = ",prefix)
+            print("prefix decode = ",tokenizer.decode(prefix))
             prompt = [demonstrations + prefix
                       for demonstrations in demonstrations_list]
+            print("prompt = ",prompt)
+            print("prompt decode = ",tokenizer.decode(prompt[0]))
+            
             tensor = prepro_sentence_pair(
                 prompt, test_inputs, max_length,
                 bos_token_id, eos_token_id,
