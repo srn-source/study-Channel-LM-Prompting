@@ -44,7 +44,8 @@ def main(logger, args):
     long_datasets = ["cr", "subj", "agnews",
                      "amazon", "yelp_full", "yelp_binary", "boolq",
                      "dbpedia", "yahoo"]
-    max_length = 256 if train_task in long_datasets else 128
+    #max_length = 256 if train_task in long_datasets else 128
+    max_length = 512 if train_task in long_datasets else 512
     batch_size = int(args.batch_size / 2) if train_task in long_datasets else args.batch_size
 
     logger.info("%s %s" % (args.method, args.task))
@@ -126,7 +127,7 @@ def run(logger, do_train, do_zeroshot, task, train_task, k, seed,
 
     n_classes = N_LABELS_DICT.get(task, None)
     templates = get_prompts(task, template_idx)
-
+    print("templates ====> ",templates)
     n_classes_train = N_LABELS_DICT.get(train_task, None)
     templates_train = get_prompts(train_task, template_idx)
 
@@ -192,7 +193,7 @@ def run(logger, do_train, do_zeroshot, task, train_task, k, seed,
             method_type=method_type,
             is_training=True,
             ensemble=ensemble)
-        print("inputs prepare_data = ", inputs['input_ids'].shape)
+        #print("inputs prepare_data = ", inputs['input_ids'].shape)
         logger.info(out_dir)
 
         if not os.path.exists(out_dir):
@@ -343,12 +344,12 @@ def run(logger, do_train, do_zeroshot, task, train_task, k, seed,
                 loss_infer = inference(model,
                                         input_tensor,
                                         batch_size, tokenizer)
-                print("loss_infer len= " , len(loss_infer))
-                print("loss_infer = " , loss_infer)
+                #print("loss_infer len= " , len(loss_infer))
+                #print("loss_infer = " , loss_infer)
                 losses.append(loss_infer)
                 ju = ju +1
-            print("ju = ",ju)
-            print("losses = ", losses)
+            #print("ju = ",ju)
+            #print("losses = ", losses)
             with open(cache_path, "wb") as f:
                 pkl.dump(losses, f)
 
@@ -379,14 +380,14 @@ def run(logger, do_train, do_zeroshot, task, train_task, k, seed,
 
 def evaluate(dev_data, label_losses):
     labels = list(label_losses.keys())
-    print("labels = ", labels)
+    #print("labels = ", labels)
     acc = []
     for idx, (_, label) in enumerate(dev_data):
         label_loss = {l:np.sum(label_losses[l][idx]) for l in label_losses}
-        print("label_loss = ",label_loss)
+        #print("label_loss = ",label_loss)
         prediction = sorted(label_loss.items(), key=lambda x: x[1])[0][0]
-        print("label = ", label)
-        print("prediction = ",prediction)
+        #print("label = ", label)
+        #print("prediction = ",prediction)
         
         acc.append(prediction==label)
     return np.mean(acc)

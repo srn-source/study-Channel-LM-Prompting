@@ -109,7 +109,7 @@ def inference(model, inputs, batch_size, tokenizer,return_logits=False):
         with torch.no_grad():
             loss = run_model(model, input_ids, attention_mask, token_type_ids,tokenizer,
                              labels=labels, return_logits=return_logits)
-            print("loss inference =",loss)
+            #print("loss inference =",loss)
         all_losses += loss.cpu().detach().numpy().tolist()
 
     return all_losses

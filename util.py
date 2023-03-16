@@ -66,25 +66,34 @@ def prepro_sentence_pair(train_inputs, test_inputs, max_length,
             "token_type_ids": torch.LongTensor(token_type_ids)}
 
 def flatten_label_losses(label_losses, dev_data):
-    print("label_losses ========= ",len(label_losses[0]))
+    #print("label_losses ========= ",len(label_losses[0]))
 
-    print("label_losses ========= ",label_losses[0])
+    #print("label_losses ========= ",label_losses[0])
     for label in range(len(label_losses)):
         k = int(len(label_losses[label]) / len(dev_data))
-        print("k = ",k)
-        print("label = ",label)
+        # print("k = ",k)
+        # print("label = ",label)
         label_losses[label] = [
             label_losses[label][k*i:k*(i+1)]
             for i in range(len(dev_data))]
-    print("label_losses ========= ",label_losses[0])
+    #print("label_losses ========= ",label_losses[0])
     return label_losses
 
 # get templates + verbalizers
 def get_prompts(task, idx):
 
     if task in ["SST-2", "sst-5", "mr", "cr"]:
-        templates = ["A %s one . ", "It was %s . ",
-                     "All in all %s . ", "A %s piece . "]
+        # templates = ["A %s one . ", "It was %s . ",
+        #              "All in all %s . ", "A %s piece . "]
+        # templates = ["A %s one. ", "It was %s . ",
+        #               "All in all %s . ", "A %s piece . "]
+        aaaa = ["extremely" , "so", "very", "incredibly "]
+        
+        templates = ["Three different sets of inputs and their corresponding instructions were provided, and being %s is the labeling . ",
+                     "The instructions and inputs were given in triplicate, and the labeling was %s . ",
+                      "There were three sets of inputs and their corresponding instructions, and the labeling was %s . ",
+                      "The labeling on the triple set of inputs and corresponding instructions was %s . "]
+        
     elif task in ["yelp_full", "yelp_binary", "amazon"]:
         templates = ["A %s one. ", "It was %s. ",
                      "All in all %s. ", "A %s piece. "]
@@ -106,6 +115,8 @@ def get_prompts(task, idx):
 
     if task in ["SST-2", "mr", "cr", "yelp_binary"]:
         label_words = ["terrible", "great"]
+        #label_words = ["set of inputs and instructions guessing labels which is terrible", "set of inputs and instructions guessing labels which is great"]
+        #label_words = ["triple set of inputs and corresponding instructions were given, and the labeling was done accurately, which is terrible", "triple set of inputs and corresponding instructions were given, and the labeling was done accurately, which is great"]
     elif task in ["sst-5", "yelp_full", "amazon"]:
         label_words = ["terrible", "bad", "okay", "good", "great"]
     elif task in ["agnews"]:
