@@ -44,8 +44,8 @@ def main(logger, args):
     long_datasets = ["cr", "subj", "agnews",
                      "amazon", "yelp_full", "yelp_binary", "boolq",
                      "dbpedia", "yahoo"]
-    #max_length = 256 if train_task in long_datasets else 128
-    max_length = 512 if train_task in long_datasets else 512
+    max_length = 256 if train_task in long_datasets else 128
+    #max_length = 512 if train_task in long_datasets else 512
     batch_size = int(args.batch_size / 2) if train_task in long_datasets else args.batch_size
 
     logger.info("%s %s" % (args.method, args.task))
@@ -382,12 +382,13 @@ def evaluate(dev_data, label_losses):
     labels = list(label_losses.keys())
     #print("labels = ", labels)
     acc = []
+    
     for idx, (_, label) in enumerate(dev_data):
         label_loss = {l:np.sum(label_losses[l][idx]) for l in label_losses}
         #print("label_loss = ",label_loss)
         prediction = sorted(label_loss.items(), key=lambda x: x[1])[0][0]
-        #print("label = ", label)
-        #print("prediction = ",prediction)
+        # print("label = ", label)
+        # print("prediction = ",prediction)
         
         acc.append(prediction==label)
     return np.mean(acc)

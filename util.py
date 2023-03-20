@@ -83,16 +83,15 @@ def flatten_label_losses(label_losses, dev_data):
 def get_prompts(task, idx):
 
     if task in ["SST-2", "sst-5", "mr", "cr"]:
-        # templates = ["A %s one . ", "It was %s . ",
-        #              "All in all %s . ", "A %s piece . "]
+        templates = ["A %s one . ", "It was %s . ",
+                     "All in all %s . ", "A %s piece . "]
         # templates = ["A %s one. ", "It was %s . ",
         #               "All in all %s . ", "A %s piece . "]
-        aaaa = ["extremely" , "so", "very", "incredibly "]
         
-        templates = ["Three different sets of inputs and their corresponding instructions were provided, and being %s is the labeling . ",
-                     "The instructions and inputs were given in triplicate, and the labeling was %s . ",
-                      "There were three sets of inputs and their corresponding instructions, and the labeling was %s . ",
-                      "The labeling on the triple set of inputs and corresponding instructions was %s . "]
+        # templates = ["Three different sets of inputs and their corresponding instructions were provided, and being %s is the labeling . ",
+        #              "The instructions and inputs were given in triplicate, and the labeling was %s . ",
+        #               "There were three sets of inputs and their corresponding instructions, and the labeling was %s . ",
+        #               "The labeling on the triple set of inputs and corresponding instructions was %s . "]
         
     elif task in ["yelp_full", "yelp_binary", "amazon"]:
         templates = ["A %s one. ", "It was %s. ",

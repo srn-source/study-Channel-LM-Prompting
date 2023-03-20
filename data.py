@@ -100,6 +100,7 @@ def prepare_data(tokenizer, train_data, test_data, max_length, max_length_per_ex
         print("prefixes = " , prefixes)
         idx = [idx for idx, _prefixes in enumerate(zip(*prefixes))
                 if not np.all([_prefixes[0]==_prefix for _prefix in _prefixes])][0]
+        
         print("idx = ",idx)
         #idx = 2
     else:

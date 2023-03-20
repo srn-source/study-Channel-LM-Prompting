@@ -5,6 +5,8 @@ import numpy as np
 from tqdm import tqdm
 import torch.nn.functional as F
 from model_util import get_optimizer_and_scheduler, get_dataloader
+from util import prepro_sentence, prepro_sentence_pair, \
+    prepro_sentence_pair_single
 
 def train(logger, model, inputs, batch_size, output_dir,
           learning_rate=1e-5,
@@ -114,12 +116,60 @@ def inference(model, inputs, batch_size, tokenizer,return_logits=False):
 
     return all_losses
 
+def test_remove(model,tokenizer):
+    ids1= tokenizer("definitely in the guilty pleasure b-movie category , reign of fire is so incredibly inane that it is laughingly enjoyable")["input_ids"]
+    ids2= tokenizer("All in all")["input_ids"]
 
-def run_model(model, input_ids, attention_mask, token_type_ids, tokenizer = None,
-              labels=None, return_logits=False):
+    bos_token_id = tokenizer.bos_token_id
+    eos_token_id = tokenizer.eos_token_id
+    
+    encoded = prepro_sentence_pair_single(
+                    ids1, ids2, 128, bos_token_id, eos_token_id
+                )
+    input_ids = torch.LongTensor(encoded[0]).cuda()
+    attention_mask = torch.LongTensor(encoded[1]).cuda()
+    token_type_ids = torch.LongTensor(encoded[2]).cuda()
+    
+    print(input_ids)
+    print(attention_mask)
+    print(token_type_ids)
+    
+    labels = input_ids
+    labels = labels[..., 1:].contiguous().unsqueeze(dim=0)
+    label_mask = token_type_ids[..., 1:].contiguous().unsqueeze(dim=0)
+    
+    print("labels0 ===> ",labels.shape)
+    print("label_mask0 ===> ",label_mask.shape)
+    
+    
     outputs = model(input_ids=input_ids, attention_mask=attention_mask)
     logits = outputs.logits[..., :-1, :].contiguous()
+    print(logits.shape)
+    logits = logits.unsqueeze(dim=0)
+    print(logits.shape)
+    
+    loss_fct = torch.nn.CrossEntropyLoss(reduction="none")
+    losses = loss_fct(logits.view(-1, logits.size(-1)),
+                      labels.view(-1)) # [batch_size, length]
+    losses = losses.unsqueeze(dim=0)
+    print(losses.shape)
+    losses = losses.view(logits.size(0), logits.size(1)) * label_mask
+    print(losses.shape)
+    #losses = torch.sum(losses, axis=1) / torch.sum(label_mask, axis=1)
+    return torch.sum(losses, axis=1) / torch.sum(label_mask, axis=1)
+    # return dict(input_ids=torch.LongTensor(encoded[0]),
+    #                 attention_mask=torch.LongTensor(encoded[1]),
+    #                 token_type_ids=torch.LongTensor(encoded[2]))
+    
+def run_model(model, input_ids, attention_mask, token_type_ids, tokenizer = None,
+              labels=None, return_logits=False):
+    #print(type(input_ids))
+    outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+    logits = outputs.logits[..., :-1, :].contiguous()
+    #print("logits ===> ",logits.shape)
 
+    
+    
     if return_logits:
         softmax = torch.nn.Softmax(dim=-1)
         return -torch.log(softmax(logits))
@@ -128,11 +178,19 @@ def run_model(model, input_ids, attention_mask, token_type_ids, tokenizer = None
         labels = input_ids
     labels = labels[..., 1:].contiguous()
     label_mask = token_type_ids[..., 1:].contiguous()
+    
+    # print("labels ===> ",labels.shape)
+    # print("label_mask ===> ",label_mask.shape)
 
     loss_fct = torch.nn.CrossEntropyLoss(reduction="none")
 
     losses = loss_fct(logits.view(-1, logits.size(-1)),
                       labels.view(-1)) # [batch_size, length]
     losses = losses.view(logits.size(0), logits.size(1)) * label_mask
+    
+    
+    # new_en = test_remove(model,tokenizer)
+    # print("new_en ===> ",new_en)
+    
     return torch.sum(losses, axis=1) / torch.sum(label_mask, axis=1)
 
